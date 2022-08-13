@@ -19,6 +19,10 @@ import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semv
  *         make it possible to transfer ERC721 tokens between Optimism and Ethereum. This contract
  *         acts as a minter for new tokens when it hears about deposits into the L1 ERC721 bridge.
  *         This contract also acts as a burner for tokens being withdrawn.
+ *         **WARNING**: Front-ends must check that the address of the ERC721 receiver can safely
+ *         handle ERC721s, or else the NFT may permanently be lost. Any EOA can safely receive
+ *         ERC721s, as well as smart contract wallets that correctly implement the
+ *         `onERC721Received` function from `IERC721Receiver`.
  */
 contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
     /**
@@ -142,7 +146,11 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
     }
 
     /**
-     * @notice Initiates a bridge of an NFT to some recipient's account on L1.
+     * @notice Initiates a bridge of an NFT to some recipient's account on L1. Callers MUST ensure
+     *         that the `_to` address can handle the ERC721 on L1, or else it will be locked in the
+     *         L1 bridge forever. Any EOA can safely receive ERC721s on L1, as well as smart
+     *         contract wallets that exist on L1 and correctly implement the `onERC721Received`
+     *         function from `IERC721Receiver`.
      *
      * @param _localToken  Address of the ERC721 on this domain.
      * @param _remoteToken Address of the ERC721 on the remote domain.
@@ -202,8 +210,13 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
                 type(IOptimismMintableERC721).interfaceId
             ) && _remoteToken == IOptimismMintableERC721(_localToken).remoteToken()
         ) {
-            // When a deposit is finalized, we give the NFT with the same tokenId to the account
-            // on L2.
+            // When a deposit is finalized, we give the NFT with the same tokenId to the account on
+            // L2. Note that we do not use OpenZeppelin's `safeMint` here because it has an internal
+            // call to `_checkOnERC721Received`, which reverts if the recipient cannot handle the
+            // NFT. If it reverts, then the NFT would permanently be locked in this bridge contract.
+            // Also, we do not call `IERC721Receiver-onERC721Received` in this contract to avoid
+            // re-entrancy. Instead, we rely on front-ends to check that the recipient can safely
+            // handle the NFT.
             // slither-disable-next-line reentrancy-events
             IOptimismMintableERC721(_localToken).mint(_to, _tokenId);
             // slither-disable-next-line reentrancy-events
