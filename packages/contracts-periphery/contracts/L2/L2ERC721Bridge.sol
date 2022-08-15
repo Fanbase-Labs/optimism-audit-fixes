@@ -16,9 +16,15 @@ import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semv
 /**
  * @title L2ERC721Bridge
  * @notice The L2 ERC721 bridge is a contract which works together with the L1 ERC721 bridge to
- *         make it possible to transfer ERC721 tokens between Optimism and Ethereum. This contract
+ *         make it possible to transfer ERC721 tokens from Ethereum to Optimism. This contract
  *         acts as a minter for new tokens when it hears about deposits into the L1 ERC721 bridge.
  *         This contract also acts as a burner for tokens being withdrawn.
+ *         **WARNING**: Do NOT use this bridge to transfer L2 native NFTs to L1. This WILL cause the
+ *         NFT to be lost forever. This bridge is ONLY meant to handle L1 native NFTs (i.e. NFTs
+ *         that were originally deployed on L1). To check if an NFT is safe to transfer from L2 to
+ *         L1, query the `deposits` function on the L1ERC721Bridge with the correct arguments (L1
+ *         ERC721 address, L2 ERC721 address, token ID). If it returns `true`, then the NFT is
+ *         safe to transfer. Otherwise, do not transfer it.
  */
 contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
     /**
@@ -110,6 +116,8 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
 
     /**
      * @notice Initiates a bridge of an NFT to the caller's account on L1.
+     *         **WARNING**: Do NOT use this bridge to transfer L2 native NFTs to L1. For further
+     *         information, see the warning at the beginning of this contract.
      *
      * @param _localToken  Address of the ERC721 on this domain.
      * @param _remoteToken Address of the ERC721 on the remote domain.
@@ -143,6 +151,8 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
 
     /**
      * @notice Initiates a bridge of an NFT to some recipient's account on L1.
+     *         **WARNING**: Do NOT use this bridge to transfer L2 native NFTs to L1. For further
+     *         information, see the warning at the beginning of this contract.
      *
      * @param _localToken  Address of the ERC721 on this domain.
      * @param _remoteToken Address of the ERC721 on the remote domain.
