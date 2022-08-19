@@ -87,6 +87,9 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
      * @param _otherBridge Address of the ERC721 bridge on the other network.
      */
     function initialize(address _messenger, address _otherBridge) public initializer {
+        require(_messenger != address(0), "ERC721Bridge: messenger cannot be address(0)");
+        require(_otherBridge != address(0), "ERC721Bridge: other bridge cannot be address(0)");
+
         messenger = _messenger;
         otherBridge = _otherBridge;
 
@@ -147,6 +150,8 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
         uint32 _minGasLimit,
         bytes calldata _extraData
     ) external {
+        require(_to != address(0), "ERC721Bridge: nft recipient cannot be address(0)");
+
         _initiateBridgeERC721(
             _localToken,
             _remoteToken,
@@ -221,6 +226,8 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
         uint32 _minGasLimit,
         bytes calldata _extraData
     ) internal {
+        require(_remoteToken != address(0), "ERC721Bridge: remote token cannot be address(0)");
+
         // Construct calldata for _l2Token.finalizeBridgeERC721(_to, _tokenId)
         bytes memory message = abi.encodeWithSelector(
             L2ERC721Bridge.finalizeBridgeERC721.selector,
