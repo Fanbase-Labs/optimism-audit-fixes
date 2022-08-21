@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { ERC721Bridge } from "../universal/op-erc721/ERC721Bridge.sol";
 import {
     CrossDomainEnabled
 } from "@eth-optimism/contracts/contracts/libraries/bridge/CrossDomainEnabled.sol";
@@ -18,7 +19,7 @@ import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semv
  *         make it possible to transfer ERC721 tokens between Optimism and Ethereum. This contract
  *         acts as an escrow for ERC721 tokens deposted into L2.
  */
-contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
+contract L1ERC721Bridge is ERC721Bridge, Semver, OwnableUpgradeable {
     /**
      * @notice Emitted when an ERC721 bridge to the other network is initiated.
      *
@@ -92,21 +93,29 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
      *
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
+     * @param _minGasLimit Minimum gas limit to supply for the bridge message on the other domain.
      */
-    constructor(address _messenger, address _otherBridge)
-        Semver(0, 0, 1)
-        CrossDomainEnabled(address(0))
-    {
-        initialize(_messenger, _otherBridge);
+    constructor(
+        address _messenger,
+        address _otherBridge,
+        uint32 _minGasLimit
+    ) Semver(0, 0, 1) CrossDomainEnabled(address(0)) {
+        initialize(_messenger, _otherBridge, _minGasLimit);
     }
 
     /**
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
+     * @param _minGasLimit Minimum gas limit to supply for the bridge message on the other domain.
      */
-    function initialize(address _messenger, address _otherBridge) public initializer {
+    function initialize(
+        address _messenger,
+        address _otherBridge,
+        uint32 _minGasLimit
+    ) public initializer {
         messenger = _messenger;
         otherBridge = _otherBridge;
+        minGasLimit = _minGasLimit;
 
         // Initialize upgradable OZ contracts
         __Ownable_init();
@@ -234,7 +243,7 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
 
             // Send the message to the L2 bridge.
             // slither-disable-next-line reentrancy-events
-            sendCrossDomainMessage(otherBridge, 600_000, message);
+            sendCrossDomainMessage(otherBridge, minGasLimit, message);
 
             // slither-disable-next-line reentrancy-events
             emit ERC721BridgeFailed(_localToken, _remoteToken, _from, _to, _tokenId, _extraData);
@@ -263,6 +272,7 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
         uint32 _minGasLimit,
         bytes calldata _extraData
     ) internal {
+        require(_minGasLimit >= minGasLimit, "L1ERC721Bridge: insufficient min gas limit supplied");
         // Construct calldata for _l2Token.finalizeBridgeERC721(_to, _tokenId)
         bytes memory message = abi.encodeWithSelector(
             L2ERC721Bridge.finalizeBridgeERC721.selector,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { ERC721Bridge } from "../universal/op-erc721/ERC721Bridge.sol";
 import {
     CrossDomainEnabled
 } from "@eth-optimism/contracts/contracts/libraries/bridge/CrossDomainEnabled.sol";
@@ -20,7 +21,7 @@ import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semv
  *         acts as a minter for new tokens when it hears about deposits into the L1 ERC721 bridge.
  *         This contract also acts as a burner for tokens being withdrawn.
  */
-contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
+contract L2ERC721Bridge is ERC721Bridge, Semver, OwnableUpgradeable {
     /**
      * @notice Emitted when an ERC721 bridge to the other network is initiated.
      *
@@ -88,21 +89,28 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
      *
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
+     * @param _minGasLimit Minimum gas limit to supply for the bridge message on the other domain.
      */
-    constructor(address _messenger, address _otherBridge)
-        Semver(0, 0, 1)
-        CrossDomainEnabled(address(0))
-    {
-        initialize(_messenger, _otherBridge);
+    constructor(
+        address _messenger,
+        address _otherBridge,
+        uint32 _minGasLimit
+    ) Semver(0, 0, 1) CrossDomainEnabled(address(0)) {
+        initialize(_messenger, _otherBridge, _minGasLimit);
     }
 
     /**
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
      */
-    function initialize(address _messenger, address _otherBridge) public initializer {
+    function initialize(
+        address _messenger,
+        address _otherBridge,
+        uint32 _minGasLimit
+    ) public initializer {
         messenger = _messenger;
         otherBridge = _otherBridge;
+        minGasLimit = _minGasLimit;
 
         // Initialize upgradable OZ contracts
         __Ownable_init();
@@ -258,6 +266,7 @@ contract L2ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
         uint32 _minGasLimit,
         bytes calldata _extraData
     ) internal {
+        require(_minGasLimit >= minGasLimit, "L2ERC721Bridge: insufficient min gas limit supplied");
         // Check that the withdrawal is being initiated by the NFT owner
         require(
             _from == IOptimismMintableERC721(_localToken).ownerOf(_tokenId),

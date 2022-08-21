@@ -19,6 +19,7 @@ const DUMMY_L1ERC721_ADDRESS: string =
 const ERR_INVALID_WITHDRAWAL: string =
   'Withdrawal is not being initiated by NFT owner'
 const TOKEN_ID: number = 10
+const FINALIZATION_GAS: number = 1_100_000
 
 describe('L2ERC721Bridge', () => {
   let alice: Signer
@@ -50,7 +51,11 @@ describe('L2ERC721Bridge', () => {
     // Deploy the contract under test
     L2ERC721Bridge = await (
       await ethers.getContractFactory('L2ERC721Bridge')
-    ).deploy(Fake__L2CrossDomainMessenger.address, DUMMY_L1BRIDGE_ADDRESS)
+    ).deploy(
+      Fake__L2CrossDomainMessenger.address,
+      DUMMY_L1BRIDGE_ADDRESS,
+      FINALIZATION_GAS
+    )
 
     // Deploy an L2 ERC721
     L2ERC721 = await (
@@ -70,7 +75,8 @@ describe('L2ERC721Bridge', () => {
       await expect(
         L2ERC721Bridge.initialize(
           Fake__L2CrossDomainMessenger.address,
-          DUMMY_L1BRIDGE_ADDRESS
+          DUMMY_L1BRIDGE_ADDRESS,
+          FINALIZATION_GAS
         )
       ).to.be.revertedWith(ERR_ALREADY_INITIALIZED)
     })
@@ -247,7 +253,7 @@ describe('L2ERC721Bridge', () => {
           L2Token.address,
           DUMMY_L1ERC721_ADDRESS,
           TOKEN_ID,
-          0,
+          FINALIZATION_GAS,
           NON_NULL_BYTES32
         )
       ).to.be.revertedWith(ERR_INVALID_WITHDRAWAL)
@@ -259,10 +265,24 @@ describe('L2ERC721Bridge', () => {
           L2Token.address,
           DUMMY_L1ERC721_ADDRESS,
           TOKEN_ID,
-          0,
+          FINALIZATION_GAS,
           NON_NULL_BYTES32
         )
       ).to.be.revertedWith('L2ERC721Bridge: account is not externally owned')
+    })
+
+    it('bridging revert if insufficient min gas limit is supplied', async () => {
+      await expect(
+        L2ERC721Bridge.connect(alice).bridgeERC721(
+          L2Token.address,
+          DUMMY_L1ERC721_ADDRESS,
+          TOKEN_ID,
+          FINALIZATION_GAS - 1, // insufficient minGasLimit
+          NON_NULL_BYTES32
+        )
+      ).to.be.revertedWith(
+        'L2ERC721Bridge: insufficient min gas limit supplied'
+      )
     })
 
     it('bridgeERC721() burns and sends the correct withdrawal message', async () => {
@@ -275,7 +295,7 @@ describe('L2ERC721Bridge', () => {
           L2Token.address,
           DUMMY_L1ERC721_ADDRESS,
           TOKEN_ID,
-          0,
+          FINALIZATION_GAS,
           NON_NULL_BYTES32
         )
       )
@@ -328,7 +348,7 @@ describe('L2ERC721Bridge', () => {
         )
       )
       // gaslimit should be correct
-      expect(withdrawalCallToMessenger.args[2]).to.equal(0)
+      expect(withdrawalCallToMessenger.args[2]).to.equal(FINALIZATION_GAS)
     })
 
     it('bridgeERC721To() reverts when called by non-owner of nft', async () => {
@@ -338,7 +358,7 @@ describe('L2ERC721Bridge', () => {
           DUMMY_L1ERC721_ADDRESS,
           bobsAddress,
           TOKEN_ID,
-          0,
+          FINALIZATION_GAS,
           NON_NULL_BYTES32
         )
       ).to.be.revertedWith(ERR_INVALID_WITHDRAWAL)
@@ -355,7 +375,7 @@ describe('L2ERC721Bridge', () => {
           DUMMY_L1ERC721_ADDRESS,
           bobsAddress,
           TOKEN_ID,
-          0,
+          FINALIZATION_GAS,
           NON_NULL_BYTES32
         )
       )
@@ -408,7 +428,7 @@ describe('L2ERC721Bridge', () => {
         )
       )
       // gas value is ignored and set to 0.
-      expect(withdrawalCallToMessenger.args[2]).to.equal(0)
+      expect(withdrawalCallToMessenger.args[2]).to.equal(FINALIZATION_GAS)
     })
   })
 })

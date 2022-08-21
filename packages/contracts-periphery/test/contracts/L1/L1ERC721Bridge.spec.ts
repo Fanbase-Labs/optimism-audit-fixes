@@ -69,7 +69,11 @@ describe('L1ERC721Bridge', () => {
     // Deploy the contract under test
     L1ERC721Bridge = await (
       await ethers.getContractFactory('L1ERC721Bridge')
-    ).deploy(Fake__L1CrossDomainMessenger.address, DUMMY_L2_BRIDGE_ADDRESS)
+    ).deploy(
+      Fake__L1CrossDomainMessenger.address,
+      DUMMY_L2_BRIDGE_ADDRESS,
+      FINALIZATION_GAS
+    )
 
     L1ERC721 = await Factory__L1ERC721.deploy('L1ERC721', 'ERC')
 
@@ -84,6 +88,20 @@ describe('L1ERC721Bridge', () => {
   describe('ERC721 deposits', () => {
     beforeEach(async () => {
       await L1ERC721.connect(alice).approve(L1ERC721Bridge.address, tokenId)
+    })
+
+    it('bridging revert if insufficient min gas limit is supplied', async () => {
+      await expect(
+        L1ERC721Bridge.connect(alice).bridgeERC721(
+          L1ERC721.address,
+          DUMMY_L2_ERC721_ADDRESS,
+          tokenId,
+          FINALIZATION_GAS - 1, // insufficient minGasLimit
+          NON_NULL_BYTES32
+        )
+      ).to.be.revertedWith(
+        'L1ERC721Bridge: insufficient min gas limit supplied'
+      )
     })
 
     it('bridgeERC721() escrows the deposit and sends the correct deposit message', async () => {

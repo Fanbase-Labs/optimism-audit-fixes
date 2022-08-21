@@ -16,7 +16,10 @@ import { OptimismEnv } from './shared/env'
 import { withdrawalTest } from './shared/utils'
 
 const TOKEN_ID: number = 1
-const FINALIZATION_GAS: number = 600_000
+// Minimum gas limit to supply for the bridge message on L2 to finalize L1 -> L2 transfers.
+const L1_TO_L2_FINALIZATION_GAS: number = 600_000
+// Minimum gas limit to supply for the bridge message on L1 to finalize L2 -> L1 transfers.
+const L2_TO_L1_FINALIZATION_GAS: number = 1_100_000
 const NON_NULL_BYTES: string = '0x1111'
 const DUMMY_L1ERC721_ADDRESS: string = ethers.utils.getAddress(
   '0x' + 'acdc'.repeat(10)
@@ -92,13 +95,15 @@ describe('ERC721 Bridge', () => {
       ethers.utils.getContractAddress({
         from: await Factory__L2ERC721Bridge.signer.getAddress(),
         nonce: await Factory__L2ERC721Bridge.signer.getTransactionCount(),
-      })
+      }),
+      L1_TO_L2_FINALIZATION_GAS
     )
     await L1ERC721Bridge.deployed()
 
     L2ERC721Bridge = await Factory__L2ERC721Bridge.deploy(
       predeploys.L2CrossDomainMessenger,
-      L1ERC721Bridge.address
+      L1ERC721Bridge.address,
+      L2_TO_L1_FINALIZATION_GAS
     )
     await L2ERC721Bridge.deployed()
 
@@ -149,7 +154,7 @@ describe('ERC721 Bridge', () => {
         L1ERC721.address,
         OptimismMintableERC721.address,
         TOKEN_ID,
-        FINALIZATION_GAS,
+        L1_TO_L2_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
     )
@@ -168,7 +173,7 @@ describe('ERC721 Bridge', () => {
         OptimismMintableERC721.address,
         aliceAddress,
         TOKEN_ID,
-        FINALIZATION_GAS,
+        L1_TO_L2_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
     )
@@ -189,7 +194,7 @@ describe('ERC721 Bridge', () => {
         L1ERC721.address,
         OptimismMintableERC721.address,
         TOKEN_ID,
-        FINALIZATION_GAS,
+        L1_TO_L2_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
     )
@@ -204,7 +209,7 @@ describe('ERC721 Bridge', () => {
       OptimismMintableERC721.address,
       L1ERC721.address,
       TOKEN_ID,
-      0,
+      L2_TO_L1_FINALIZATION_GAS,
       NON_NULL_BYTES
     )
     await tx.wait()
@@ -224,7 +229,7 @@ describe('ERC721 Bridge', () => {
         L1ERC721.address,
         OptimismMintableERC721.address,
         TOKEN_ID,
-        FINALIZATION_GAS,
+        L1_TO_L2_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
     )
@@ -240,7 +245,7 @@ describe('ERC721 Bridge', () => {
       L1ERC721.address,
       aliceAddress,
       TOKEN_ID,
-      0,
+      L2_TO_L1_FINALIZATION_GAS,
       NON_NULL_BYTES
     )
     await tx.wait()
@@ -262,7 +267,7 @@ describe('ERC721 Bridge', () => {
           L1ERC721.address,
           OptimismMintableERC721.address,
           TOKEN_ID,
-          FINALIZATION_GAS,
+          L1_TO_L2_FINALIZATION_GAS,
           NON_NULL_BYTES
         )
       )
@@ -296,7 +301,7 @@ describe('ERC721 Bridge', () => {
         FakeOptimismMintableERC721.address,
         L1ERC721.address,
         TOKEN_ID,
-        0,
+        L2_TO_L1_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
       await withdrawalTx.wait()
@@ -337,7 +342,7 @@ describe('ERC721 Bridge', () => {
         L2NativeNFT.address,
         DUMMY_L1ERC721_ADDRESS,
         TOKEN_ID,
-        FINALIZATION_GAS,
+        L2_TO_L1_FINALIZATION_GAS,
         NON_NULL_BYTES
       )
       await withdrawalTx.wait()
