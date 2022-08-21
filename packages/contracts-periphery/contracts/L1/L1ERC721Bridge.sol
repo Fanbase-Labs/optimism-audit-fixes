@@ -81,7 +81,6 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
      */
     address public otherBridge;
 
-    // Maps L1 token to L2 token to token ID to a boolean indicating if the token is deposited
     /**
      * @notice Mapping of L1 token to L2 token to ID to boolean, indicating if the given L1 token
      *         by ID was deposited for a given L2 token.
@@ -235,7 +234,7 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
 
             // Send the message to the L2 bridge.
             // slither-disable-next-line reentrancy-events
-            sendCrossDomainMessage(otherBridge, 0, message);
+            sendCrossDomainMessage(otherBridge, 1_200_000, message);
 
             // slither-disable-next-line reentrancy-events
             emit ERC721BridgeFailed(_localToken, _remoteToken, _from, _to, _tokenId, _extraData);

@@ -14,6 +14,9 @@ const config: HardhatUserConfig = {
     optimism: {
       url: process.env.L2_URL || 'http://localhost:8545',
     },
+    // kovan: {
+    //   url: process.env.L1_URL
+    // }
   },
   mocha: {
     timeout: envConfig.MOCHA_TIMEOUT,

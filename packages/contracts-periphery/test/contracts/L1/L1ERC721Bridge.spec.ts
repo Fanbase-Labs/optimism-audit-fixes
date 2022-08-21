@@ -69,7 +69,11 @@ describe('L1ERC721Bridge', () => {
     // Deploy the contract under test
     L1ERC721Bridge = await (
       await ethers.getContractFactory('L1ERC721Bridge')
-    ).deploy(Fake__L1CrossDomainMessenger.address, DUMMY_L2_NFT_BRIDGE_ADDRESS)
+    ).deploy(
+      Fake__L1CrossDomainMessenger.address,
+      DUMMY_L2_NFT_BRIDGE_ADDRESS,
+      FINALIZATION_GAS
+    )
 
     L1ERC721 = await Factory__L1ERC721.deploy('L1ERC721', 'ERC')
 
