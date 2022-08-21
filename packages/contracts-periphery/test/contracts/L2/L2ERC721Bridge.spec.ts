@@ -238,7 +238,7 @@ describe('L2ERC721Bridge', () => {
       ])
 
       const signer = await ethers.getSigner(L2ERC721Bridge.address)
-      await L2Token.connect(signer).mint(aliceAddress, TOKEN_ID)
+      await L2Token.connect(signer).safeMint(aliceAddress, TOKEN_ID)
     })
 
     it('bridgeERC721() reverts when called by non-owner of nft', async () => {

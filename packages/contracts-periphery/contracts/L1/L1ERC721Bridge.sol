@@ -193,7 +193,7 @@ contract L1ERC721Bridge is Semver, CrossDomainEnabled, OwnableUpgradeable {
 
         // When a withdrawal is finalized on L1, the L1 Bridge transfers the NFT to the withdrawer
         // slither-disable-next-line reentrancy-events
-        IERC721(_localToken).transferFrom(address(this), _to, _tokenId);
+        IERC721(_localToken).safeTransferFrom(address(this), _to, _tokenId);
 
         // slither-disable-next-line reentrancy-events
         emit ERC721BridgeFinalized(_localToken, _remoteToken, _from, _to, _tokenId, _extraData);
