@@ -223,7 +223,7 @@ contract L1ERC721Bridge is ERC721Bridge, Semver, OwnableUpgradeable {
 
             // Send the message to the L2 bridge.
             // slither-disable-next-line reentrancy-events
-            sendCrossDomainMessage(otherBridge, 0, message);
+            sendCrossDomainMessage(otherBridge, 1_200_000, message);
 
             // slither-disable-next-line reentrancy-events
             emit ERC721BridgeFailed(_localToken, _remoteToken, _from, _to, _tokenId, _extraData);

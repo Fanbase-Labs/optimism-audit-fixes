@@ -13,11 +13,15 @@ import Artifact__OptimismMintableERC721 from '@eth-optimism/contracts-periphery/
 import { expect } from './shared/setup'
 import { OptimismEnv } from './shared/env'
 import { withdrawalTest } from './shared/utils'
+import { MessageLike } from '@eth-optimism/sdk'
+import { TransactionResponse } from '@ethersproject/abstract-provider'
+// TODO: rm (^ these should be external imports if not removed)
 
+// TODO: change finalization gas here and in unit tests
 const TOKEN_ID: number = 1
 const FINALIZATION_GAS: number = 1_200_000
 const NON_NULL_BYTES: string = '0x1111'
-const RANDOM_ADDRESS = ethers.utils.getAddress(
+const DUMMY_L1ERC721_ADDRESS: string = ethers.utils.getAddress(
   '0x' + 'acdc'.repeat(10)
 )
 
@@ -132,7 +136,7 @@ describe('ERC721 Bridge', () => {
       Artifact__OptimismMintableERC721.abi,
       erc721CreatedEvent.args.localToken
     )
-    await OptimismMintableERC721.deployed()
+    // await OptimismMintableERC721.deployed()
 
     // Mint an L1 ERC721 to Bob on L1
     const tx2 = await L1ERC721.mint(bobAddress, TOKEN_ID)
@@ -144,7 +148,8 @@ describe('ERC721 Bridge', () => {
   })
 
   it('bridgeERC721', async () => {
-    await env.messenger.waitForMessageReceipt(
+    // TODO: rm
+    const l2Receipt = await env.messenger.waitForMessageReceipt(
       await L1ERC721Bridge.bridgeERC721(
         L1ERC721.address,
         OptimismMintableERC721.address,
@@ -310,45 +315,59 @@ describe('ERC721 Bridge', () => {
   withdrawalTest(
     'should refund an L2 NFT that fails to be finalized on l1',
     async () => {
-      // First, bridge the L1 NFT.
-      await env.messenger.waitForMessageReceipt(
-        await L1ERC721Bridge.bridgeERC721(
-          L1ERC721.address,
-          OptimismMintableERC721.address,
-          TOKEN_ID,
-          FINALIZATION_GAS,
-          NON_NULL_BYTES
+      // Deploy an L2 native NFT, which:
+      // - Mimics the behavior and interface of an OptimismMintableERC721.
+      // - Allows anyone to mint tokens.
+      // - Has a `remoteToken` state variable that returns the address of a non-existent L1 ERC721.
+      //     This will cause the bridge to fail on L1, triggering a refund on L2.
+      const L2NativeNFT = await (
+        await ethers.getContractFactory(
+          'FakeOptimismMintableERC721',
+          aliceWalletL2
         )
-      )
+      ).deploy(DUMMY_L1ERC721_ADDRESS, L2ERC721Bridge.address)
+      await L2NativeNFT.deployed()
 
-      // Check that Bob owns the NFT on L2
-      expect(await OptimismMintableERC721.ownerOf(TOKEN_ID)).to.equal(bobAddress)
-
-      // Bridge the NFT back to L2, using a random address as the recipient. This should initiate a
-      // refund on L1, allowing the original sender to re-claim the NFT on L2.
-      const tx = await L2ERC721Bridge.bridgeERC721To(
-        OptimismMintableERC721.address,
-        L1ERC721.address,
-        RANDOM_ADDRESS,
-        TOKEN_ID,
-        0,
-        NON_NULL_BYTES
-      )
+      // Alice mints an NFT from the L2 native ERC721 contract
+      const tx = await L2NativeNFT.mint(aliceAddress, TOKEN_ID)
       await tx.wait()
 
-      // Check that the NFT is locked in the bridge on both chains (pre-refund).
-      expect(await L1ERC721.ownerOf(TOKEN_ID)).to.equal(L1ERC721Bridge.address)
-      expect(await OptimismMintableERC721.ownerOf(TOKEN_ID)).to.equal(L2ERC721Bridge.address)
+      // Check that Alice owns the L2 NFT
+      expect(await L2NativeNFT.ownerOf(TOKEN_ID)).to.equal(
+        aliceAddress
+      )
 
-      // Finalize the txn on L1. This should initiate the refund and send the NFT back to the original sender on L2.
-      await env.relayXDomainMessages(tx)
-      await env.messenger.waitForMessageReceipt(tx)
+      // Alice bridges her L2 native NFT to L1, which burns the L2 NFT.
+      const withdrawalTx = await L2ERC721Bridge.connect(
+        aliceWalletL2
+      ).bridgeERC721(
+        L2NativeNFT.address,
+        DUMMY_L1ERC721_ADDRESS,
+        TOKEN_ID,
+        FINALIZATION_GAS,
+        NON_NULL_BYTES
+      )
+      await withdrawalTx.wait()
 
-      // Check that the L2 NFT has been refunded to the original sender.
-      expect(await OptimismMintableERC721.ownerOf(TOKEN_ID)).to.equal(bobAddress)
+      // Check that the token was burnt on L2 (pre-refund).
+      await expect(L2NativeNFT.ownerOf(TOKEN_ID)).to.be.revertedWith(
+        'ERC721: owner query for nonexistent token'
+      )
 
-      // Check that the L1 NFT remains locked in the L1 bridge.
-      expect(await L1ERC721.ownerOf(TOKEN_ID)).to.equal(L1ERC721Bridge.address)
+      // Relay the cross-domain transaction to L1, which initiates an L1 -> L2 message to refund
+      // Alice her L2 NFT.
+      await env.relayXDomainMessages(withdrawalTx)
+
+      // Wait for the L1 -> L2 message to finalize on L2
+      const txPair = await env.waitForXDomainTransaction(withdrawalTx)
+      await env.messenger.waitForMessageReceipt(
+        txPair.remoteTx as MessageLike
+      )
+
+      // Check that the L2 NFT has been refunded to Alice.
+      expect(await L2NativeNFT.ownerOf(TOKEN_ID)).to.equal(
+        aliceAddress
+      )
     }
   )
 })
